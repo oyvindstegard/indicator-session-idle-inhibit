@@ -50,7 +50,8 @@ setup(name='indicator-session-idle-inhibit',
       url='http://stegard.net/tools/',
       scripts=['bin/indicator-session-idle-inhibit'],
       data_files=[('share/applications',                ['data/indicator-session-idle-inhibit.desktop']),
-                  ('share/icons/ubuntu-mono-dark/status/22', glob.glob('data/icons/ubuntu-mono-dark/status/22/*.svg'))],
+                  ('share/icons/ubuntu-mono-dark/status/22', glob.glob('data/icons/ubuntu-mono-dark/status/22/*.svg')),
+                  ('share/icons/ubuntu-mono-light/status/22', glob.glob('data/icons/ubuntu-mono-light/status/22/*.svg'))],
       requires=['appindicator', 'pyxdg'],
       cmdclass={ "build_scripts": custom_build_scripts, "clean": custom_clean_command }
 )
