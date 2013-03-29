@@ -22,7 +22,10 @@ class custom_clean_command(_clean):
         assert os.getcwd() == self.cwd, 'Must be in package root: %s' % self.cwd
         shutil.rmtree('./build', ignore_errors=True)
         shutil.rmtree('./dist', ignore_errors=True)
-        os.remove('MANIFEST')
+        try:
+            os.remove('MANIFEST')
+        except:
+            pass
 
 class custom_build_scripts(_build_scripts):
     """Currently no-op extension of build_scripts command class"""
