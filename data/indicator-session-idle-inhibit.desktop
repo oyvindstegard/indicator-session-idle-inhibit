@@ -1,0 +1,17 @@
+[Desktop Entry]
+Version=1.0
+Encoding=UTF-8
+Name=Session Idle Inhibit Indicator
+Name[nb]=Indikator for hindring av inaktiv sesjon
+GenericName=Session Idle Inhibit Indicator
+GenericName[nb]=Indikator for hindring av inaktiv sesjon
+Exec=indicator-session-idle-inhibit
+TryExec=session-idle-inhibit-indicator
+Comment=Control and show session idle inhibit status
+Terminal=false
+Hidden=false
+Type=Application
+Categories=System;GNOME;GTK;
+Icon=indicator-session-idle-inhibit-inhibited
+X-GNOME-Autostart-enabled=true
+Keywords=session;inhibit;idle;screensaver;sleep;

@@ -1,0 +1,239 @@
+#!/usr/bin/env python
+# -*- Mode: Python; coding: utf-8; indent-tabs-mode: nil; tab-width: 2 -*-
+### BEGIN LICENSE
+# Copyright (C) 2013	Øyvind Stegard <oyvinst@ifi.uio.no>
+#
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program. If not, see <http://www.gnu.org/licenses/>.
+### END LICENSE
+
+# TODO consider splitting out idle control and autostart stuff into a separate package/module.
+#      for now, just it things dead simple ..
+
+ICON_NORMAL = 'indicator-session-idle-inhibit'
+ICON_INHIBITED = 'indicator-session-idle-inhibit-inhibited'
+APPNAME = 'indicator-session-idle-inhibit'
+APPTITLE = 'Session Idle Inhibit Indicator'
+VERSION = '0.1beta'
+
+class SessionIdleInhibitControl:
+  """Interacts with gnome session manager and can query session idle inhibit
+  status and also act as an inhibitor.
+  """
+
+  # Inhibit session idle flag (8)
+  # See http://people.gnome.org/~mccann/gnome-session/docs/gnome-session.html#org.gnome.SessionManager.Inhibit
+  INHIBIT_FLAGS = 8
+
+  def __init__(self, update_callback=None, xwinid=0):
+    import dbus
+    from dbus.mainloop.glib import DBusGMainLoop
+    # Not sure if this is actually required:
+    DBusGMainLoop(set_as_default=True)
+
+    self.session_bus = dbus.SessionBus()
+    self.sm_obj = self.session_bus.get_object('org.gnome.SessionManager', '/org/gnome/SessionManager')
+    self.inhibit_method = self.sm_obj.get_dbus_method('Inhibit', 'org.gnome.SessionManager')
+    self.uninhibit_method = self.sm_obj.get_dbus_method('Uninhibit', 'org.gnome.SessionManager')
+    self.is_inhibited_method = self.sm_obj.get_dbus_method('IsInhibited', 'org.gnome.SessionManager')
+    self.cookie = None
+    self.update_callback = update_callback
+    self.xwinid = xwinid
+
+    # Setup signals
+    self.sm_obj.connect_to_signal('InhibitorAdded', self.inhibitor_add_remove_handler, dbus_interface='org.gnome.SessionManager')
+    self.sm_obj.connect_to_signal('InhibitorRemoved', self.inhibitor_add_remove_handler, dbus_interface='org.gnome.SessionManager')
+
+  def inhibitor_add_remove_handler(self, objpath):
+    if self.update_callback:
+      if self.is_session_inhibited():
+        self.update_callback(True, self.get_inhibitor_app_names())
+      else:
+        self.update_callback(False, [])
+
+  def set_inhibit(self, inhibit):
+    if inhibit and not self.cookie:
+      self.cookie = self.inhibit_method(APPNAME, self.xwinid, 'User inhibit',
+                                        SessionIdleInhibitControl.INHIBIT_FLAGS)
+    elif not inhibit and self.cookie:
+      self.uninhibit_method(self.cookie)
+      self.cookie = None
+
+  def is_inhibit(self):
+    return self.cookie is not None
+
+  def is_session_inhibited(self):
+    """Returns True if at least one inhibitor is preventing the session from
+    being flagged as idle by session manager, False otherwise."""
+    return self.is_inhibited_method(SessionIdleInhibitControl.INHIBIT_FLAGS)
+
+  def get_inhibitor_app_names(self):
+    appnames = []
+    for objpath in self.sm_obj.GetInhibitors(dbus_interface='org.gnome.SessionManager'):
+      try:
+        inhibitorobj = self.session_bus.get_object('org.gnome.SessionManager', objpath)
+        appname = inhibitorobj.GetAppId(dbus_interface='org.gnome.SessionManager.Inhibitor')
+        appnames.append(appname)
+      except:
+        continue
+
+    return appnames
+
+import os
+import xdg.BaseDirectory
+from xdg.DesktopEntry import DesktopEntry
+class DesktopAutostart:
+  """
+  Manage autostart on/off with desktop file in autostart dir.
+  """
+  def get_command_name(self):
+    return os.path.basename(__file__)
+
+  def get_desktop_file_name(self):
+    return self.get_command_name().rstrip('.py') + '.desktop'
+
+  def get_installed_desktop_file_path(self):
+    """Try to resolve location of installed .desktop file."""
+    for data_dir in xdg.BaseDirectory.xdg_data_dirs:
+      p = os.path.join(data_dir, 'applications', self.get_desktop_file_name())
+      if os.path.isfile(p):
+        return p
+
+    return None # no installed .desktop file found in standard locations
+
+  def get_autostart_desktop_file_path(self):
+    return os.path.join(xdg.BaseDirectory.xdg_config_home,
+                        'autostart', self.get_desktop_file_name())
+    
+  def set_autostart(self, autostart):
+    autostart_file = self.get_autostart_desktop_file_path()
+    if not os.path.isdir(os.path.dirname(autostart_file)):
+      os.makedirs(os.path.dirname(autostart_file), 0755)
+    
+    if not autostart:
+      if os.path.isfile(autostart_file): os.remove(autostart_file)
+      return
+
+    desktopfile = self.get_installed_desktop_file_path()
+    de = DesktopEntry()
+    if desktopfile:
+      de.parse(desktopfile)
+    else:
+      # Create a minimal one from scratch, since we found no installed version..
+      de.addGroup('Desktop Entry')
+      de.set('Version', '1.0')
+      de.set('Name', APPTITLE)
+      de.set('Comment', 'Control and show session idle inhibit status')
+      de.set('Type', 'Application')
+      de.set('Exec', self.get_command_name())
+      de.set('Terminal', 'false')
+      de.set('Hidden', 'false')
+      de.set('Icon', ICON_INHIBITED)
+      de.set('Categories', 'System;')
+
+    de.set('X-GNOME-Autostart-enabled', 'true')
+    de.write(autostart_file)
+
+  def is_autostart(self):
+    return os.path.exists(self.get_autostart_desktop_file_path())
+
+def quit_handler(widget, data):
+  """Callback for GTK quit"""
+  idlectl.set_inhibit(False)
+  Gtk.main_quit()
+
+def toggle_inhibit_handler(widget, data):
+  """Handler for inhibit menu item"""
+  if idlectl.is_inhibit():
+    idlectl.set_inhibit(False)
+    widget.set_active(False)
+  else:
+    idlectl.set_inhibit(True)
+    widget.set_active(True)
+
+def autostart_handler(widget, autostart):
+  """Handler for autostart menu item"""
+  if widget.get_active():
+    autostart.set_autostart(True)
+  else:
+    autostart.set_autostart(False)
+
+# callback which updates indicator status
+def update_status_handler(inhibited, inhibitor_appnames):
+  """Callback for SessionIdleInhibitControl which updates
+  indicator widgets according to status."""
+
+  if inhibited:
+    indicator.set_icon(ICON_INHIBITED)
+    if len(inhibitor_appnames) == 1 and inhibitor_appnames[0] != APPNAME:
+      status_menu_item.set_label('Idle is inhibited by %s' % (inhibitor_appnames[0],))
+    else:
+      status_menu_item.set_label('Idle is inhibited')
+      
+  else:
+    indicator.set_icon(ICON_NORMAL)
+    status_menu_item.set_label('Idle is not inhibited')
+
+from gi.repository import Gtk
+from gi.repository import AppIndicator3
+
+if __name__ == '__main__':
+  # Don't let Python handle SIGINT to allow killing with CTRL+C:
+  import signal
+  signal.signal(signal.SIGINT, signal.SIG_DFL)
+
+  indicator = AppIndicator3.Indicator.new(APPNAME,
+                                          ICON_NORMAL,
+                                          AppIndicator3.IndicatorCategory.SYSTEM_SERVICES)
+  indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
+  indicator.set_property('title', APPTITLE)
+  
+  # Supply 0 for xid, since we don't really have one as a simple indicator app.
+  idlectl = SessionIdleInhibitControl(update_status_handler, 0)
+  autostart = DesktopAutostart()
+
+  # Build indicator menu
+  menu = Gtk.Menu()
+  status_menu_item = Gtk.MenuItem('Unknown status')
+  status_menu_item.set_sensitive(False)
+  menu.append(status_menu_item)
+  status_menu_item.show()
+
+  menu_item = Gtk.SeparatorMenuItem()
+  menu.append(menu_item)
+  menu_item.show()
+
+  inhibit_menu_item = Gtk.CheckMenuItem('Inhibit session idle')
+  inhibit_menu_item.connect('activate', toggle_inhibit_handler, None)
+  menu.append(inhibit_menu_item)
+  inhibit_menu_item.show()
+
+  menu_item = Gtk.CheckMenuItem('Autostart at login')
+  if autostart.is_autostart():
+    menu_item.set_active(True)
+    
+  menu_item.connect('toggled', autostart_handler, autostart)
+  menu.append(menu_item)
+  menu_item.show()
+
+  menu_item = Gtk.MenuItem('Quit')
+  menu_item.connect('activate', quit_handler, None)
+  menu.append(menu_item)
+  menu_item.show()
+
+  indicator.set_menu(menu)
+
+  # Update initial status
+  update_status_handler(idlectl.is_session_inhibited(), idlectl.get_inhibitor_app_names())
+
+  # Enter GTK/GLib main loop
+  Gtk.main()
