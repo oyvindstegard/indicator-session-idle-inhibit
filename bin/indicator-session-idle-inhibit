@@ -197,7 +197,7 @@ if __name__ == '__main__':
   indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
   indicator.set_property('title', APPTITLE)
   
-  # Supply 0 for xid, since we don't really have one as a simple indicator app.
+  # Supply 0 for xwinid
   idlectl = SessionIdleInhibitControl(update_status_handler, 0)
   autostart = DesktopAutostart()
 
@@ -231,6 +231,8 @@ if __name__ == '__main__':
   menu_item.show()
 
   indicator.set_menu(menu)
+  # toggle inhibit on middle mouse click:
+  indicator.set_secondary_activate_target(inhibit_menu_item) 
 
   # Update initial status
   update_status_handler(idlectl.is_session_inhibited(), idlectl.get_inhibitor_app_names())
