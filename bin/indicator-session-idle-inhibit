@@ -16,8 +16,8 @@
 # this program. If not, see <http://www.gnu.org/licenses/>.
 ### END LICENSE
 
-# TODO consider splitting out idle control and autostart stuff into a separate package/module.
-#      for now, just it things dead simple ..
+# TODO Consider splitting out idle control and autostart stuff into a separate package/module.
+#      For now, just keep things all-in-one and simple ..
 
 ICON_NORMAL = 'indicator-session-idle-inhibit'
 ICON_INHIBITED = 'indicator-session-idle-inhibit-inhibited'
