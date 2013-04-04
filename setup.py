@@ -43,7 +43,7 @@ class custom_build_scripts(_build_scripts):
 setup(name='indicator-session-idle-inhibit',
       version='0.1beta',
       description='Session idle inhibit indicator',
-      long_description=open('README.txt').read(),
+      long_description=open('README.md').read(),
       author='Øyvind Stegard',
       author_email='oyvinst@ifi.uio.no',
       license='GPLv3',
