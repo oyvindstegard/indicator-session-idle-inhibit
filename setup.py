@@ -41,17 +41,16 @@ class custom_build_scripts(_build_scripts):
         _build_scripts.run(self)
 
 setup(name='indicator-session-idle-inhibit',
-      version='0.1beta',
+      version='0.2',
       description='Session idle inhibit indicator',
       long_description=open('README.md').read(),
       author='Øyvind Stegard',
-      author_email='oyvinst@ifi.uio.no',
+      author_email='oyvind@stegard.net',
       license='GPLv3',
       url='http://stegard.net/tools/',
       scripts=['bin/indicator-session-idle-inhibit'],
-      data_files=[('share/applications',                ['data/indicator-session-idle-inhibit.desktop']),
-                  ('share/icons/ubuntu-mono-dark/status/22', glob.glob('data/icons/ubuntu-mono-dark/status/22/*.svg')),
-                  ('share/icons/ubuntu-mono-light/status/22', glob.glob('data/icons/ubuntu-mono-light/status/22/*.svg'))],
+      data_files=[('share/applications', ['data/indicator-session-idle-inhibit.desktop']),
+                  ('share/pixmaps', glob.glob('data/pixmaps/*.svg'))],
       requires=['appindicator', 'pyxdg'],
       cmdclass={ "build_scripts": custom_build_scripts, "clean": custom_clean_command }
 )

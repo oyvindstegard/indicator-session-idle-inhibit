@@ -1,7 +1,7 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- Mode: Python; coding: utf-8; indent-tabs-mode: nil; tab-width: 2 -*-
 ### BEGIN LICENSE
-# Copyright (C) 2013	Øyvind Stegard <oyvinst@ifi.uio.no>
+# Copyright (C) 2013-2019	Øyvind Stegard <oyvind@stegard.net>
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -19,11 +19,12 @@
 # TODO Consider splitting out idle control and autostart stuff into a separate package/module.
 #      For now, just keep things all-in-one and simple ..
 
-ICON_NORMAL = 'indicator-session-idle-inhibit'
-ICON_INHIBITED = 'indicator-session-idle-inhibit-inhibited'
 APPNAME = 'indicator-session-idle-inhibit'
 APPTITLE = 'Session Idle Inhibit Indicator'
-VERSION = '0.1beta'
+VERSION = '0.2'
+
+ICON_NORMAL = 'indicator-session-idle-inhibit'
+ICON_INHIBITED = 'indicator-session-idle-inhibit-inhibited'
 
 class SessionIdleInhibitControl:
   """Interacts with gnome session manager and can query session idle inhibit
@@ -113,12 +114,12 @@ class DesktopAutostart:
   def get_autostart_desktop_file_path(self):
     return os.path.join(xdg.BaseDirectory.xdg_config_home,
                         'autostart', self.get_desktop_file_name())
-    
+
   def set_autostart(self, autostart):
     autostart_file = self.get_autostart_desktop_file_path()
     if not os.path.isdir(os.path.dirname(autostart_file)):
-      os.makedirs(os.path.dirname(autostart_file), 0755)
-    
+      os.makedirs(os.path.dirname(autostart_file), 0O755)
+
     if not autostart:
       if os.path.isfile(autostart_file): os.remove(autostart_file)
       return
@@ -173,16 +174,18 @@ def update_status_handler(inhibited, inhibitor_appnames):
   indicator widgets according to status."""
 
   if inhibited:
-    indicator.set_icon(ICON_INHIBITED)
+    indicator.set_icon_full(ICON_INHIBITED, 'Inhibited icon')
     if len(inhibitor_appnames) == 1 and inhibitor_appnames[0] != APPNAME:
       status_menu_item.set_label('Idle is inhibited by %s' % (inhibitor_appnames[0],))
     else:
       status_menu_item.set_label('Idle is inhibited')
-      
   else:
-    indicator.set_icon(ICON_NORMAL)
+    indicator.set_icon_full(ICON_NORMAL, 'App icon unhibited')
     status_menu_item.set_label('Idle is not inhibited')
 
+import gi
+gi.require_version('Gtk', '3.0')
+gi.require_version('AppIndicator3', '0.1')
 from gi.repository import Gtk
 from gi.repository import AppIndicator3
 
@@ -193,17 +196,18 @@ if __name__ == '__main__':
 
   indicator = AppIndicator3.Indicator.new(APPNAME,
                                           ICON_NORMAL,
-                                          AppIndicator3.IndicatorCategory.SYSTEM_SERVICES)
+                                          AppIndicator3.IndicatorCategory.SYSTEM_SERVICES
+                                          )
   indicator.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
   indicator.set_property('title', APPTITLE)
-  
+
   # Supply 0 for xwinid
   idlectl = SessionIdleInhibitControl(update_status_handler, 0)
   autostart = DesktopAutostart()
 
   # Build indicator menu
   menu = Gtk.Menu()
-  status_menu_item = Gtk.MenuItem('Unknown status')
+  status_menu_item = Gtk.MenuItem(label='Unknown status')
   status_menu_item.set_sensitive(False)
   menu.append(status_menu_item)
   status_menu_item.show()
@@ -212,27 +216,27 @@ if __name__ == '__main__':
   menu.append(menu_item)
   menu_item.show()
 
-  inhibit_menu_item = Gtk.CheckMenuItem('Inhibit session idle')
+  inhibit_menu_item = Gtk.CheckMenuItem(label='Inhibit session idle')
   inhibit_menu_item.connect('activate', toggle_inhibit_handler, None)
   menu.append(inhibit_menu_item)
   inhibit_menu_item.show()
 
-  menu_item = Gtk.CheckMenuItem('Autostart at login')
+  menu_item = Gtk.CheckMenuItem(label='Autostart at login')
   if autostart.is_autostart():
     menu_item.set_active(True)
-    
+
   menu_item.connect('toggled', autostart_handler, autostart)
   menu.append(menu_item)
   menu_item.show()
 
-  menu_item = Gtk.MenuItem('Quit')
+  menu_item = Gtk.MenuItem(label='Quit')
   menu_item.connect('activate', quit_handler, None)
   menu.append(menu_item)
   menu_item.show()
 
   indicator.set_menu(menu)
   # toggle inhibit on middle mouse click:
-  indicator.set_secondary_activate_target(inhibit_menu_item) 
+  indicator.set_secondary_activate_target(inhibit_menu_item)
 
   # Update initial status
   update_status_handler(idlectl.is_session_inhibited(), idlectl.get_inhibitor_app_names())
